@@ -6,7 +6,8 @@ import constants from "../../../../constants/variable.js"
 import { handlePath, nameLengthLimit } from "../../../../common.js"
 import { changeEditStatus } from "../../../../reducer/modules/interface.js"
 import json5 from "json5"
-import { message, Affix, Tabs } from "antd"
+import { message, Affix, Tabs, Modal } from "antd"
+const confirm = Modal.confirm
 import EasyDragSort from "../../../../components/EasyDragSort/EasyDragSort.js"
 import mockEditor from "client/components/AceEditor/mockEditor"
 import AceEditor from "client/components/AceEditor/AceEditor"
@@ -489,6 +490,46 @@ class InterfaceEditForm extends Component {
         data = data || dataTpl[name]
         newValue[name] = [].concat(this.state[name], data)
         this.setState(newValue)
+    }
+
+    editParams = (name, title) => {
+        let curValue = this.props.form.getFieldValue(name)
+        confirm({
+            title: title || "批量编辑",
+            iconType: "plus-square",
+            width: 600,
+            content: (
+                <AceEditor
+                    style={{ minHeight: "300px" }}
+                    data={JSON.stringify(curValue, (k, v) => {
+                        return v === undefined ? "" : v
+                    })}
+                    onChange={d => {
+                        this.tmp_data = d
+                    }}
+                    fullScreen={true}
+                />
+            ),
+            onOk: () => {
+                if (!this.tmp_data) {
+                    return false
+                }
+                if (this.tmp_data.format !== true) {
+                    message.error(this.tmp_data.format)
+                    return Promise.reject(this.tmp_data.format)
+                }
+                if (this.tmp_data.jsonData.length < 1) {
+                    return Promise.reject(this.tmp_data.format)
+                }
+                let newValue = { [name]: this.tmp_data.jsonData }
+                this.props.form.setFieldsValue(newValue)
+                this.setState(newValue)
+                this.tmp_data = null
+            },
+            onCancel: () => {
+                this.tmp_data = null
+            }
+        })
     }
 
     delParams = (key, name) => {
@@ -1136,6 +1177,20 @@ class InterfaceEditForm extends Component {
                         >
                             添加Query参数
                         </Button>
+
+                        <Button
+                            size="small"
+                            type="primary"
+                            style={{ marginLeft: "5px" }}
+                            onClick={() =>
+                                this.editParams(
+                                    "req_query",
+                                    "批量编辑Query参数"
+                                )
+                            }
+                        >
+                            批量编辑Query参数
+                        </Button>
                     </FormItem>
 
                     <Row
@@ -1169,6 +1224,16 @@ class InterfaceEditForm extends Component {
                             onClick={() => this.addParams("req_headers")}
                         >
                             添加Header
+                        </Button>
+                        <Button
+                            size="small"
+                            type="primary"
+                            style={{ marginLeft: "5px" }}
+                            onClick={() =>
+                                this.editParams("req_headers", "批量编辑Header")
+                            }
+                        >
+                            批量编辑Header
                         </Button>
                     </FormItem>
 
@@ -1236,6 +1301,20 @@ class InterfaceEditForm extends Component {
                                                 }
                                             >
                                                 添加form参数
+                                            </Button>
+
+                                            <Button
+                                                size="small"
+                                                type="primary"
+                                                style={{ marginLeft: "5px" }}
+                                                onClick={() =>
+                                                    this.editParams(
+                                                        "req_body_form",
+                                                        "批量编辑form参数"
+                                                    )
+                                                }
+                                            >
+                                                批量编辑form参数
                                             </Button>
                                         </Col>
                                     </Row>
