@@ -23,6 +23,7 @@ import URL from 'url';
 const Dragger = Upload.Dragger;
 import { saveImportData } from '../../../../reducer/modules/interface';
 import { fetchUpdateLogData } from '../../../../reducer/modules/news.js';
+import { handleSwaggerUrlData } from '../../../../reducer/modules/project';
 const Option = Select.Option;
 const confirm = Modal.confirm;
 const plugin = require('client/plugin.js');
@@ -30,7 +31,6 @@ const RadioGroup = Radio.Group;
 const importDataModule = {};
 const exportDataModule = {};
 const HandleImportData = require('common/HandleImportData');
-
 function handleExportRouteParams(url, status, isWiki) {
   if (!url) {
     return;
@@ -54,12 +54,14 @@ function handleExportRouteParams(url, status, isWiki) {
     return {
       curCatid: -(-state.inter.curdata.catid),
       basePath: state.project.currProject.basepath,
-      updateLogList: state.news.updateLogList
+      updateLogList: state.news.updateLogList,
+      swaggerUrlData: state.project.swaggerUrlData
     };
   },
   {
     saveImportData,
-    fetchUpdateLogData
+    fetchUpdateLogData,
+    handleSwaggerUrlData
   }
 )
 class ProjectData extends Component {
@@ -71,7 +73,7 @@ class ProjectData extends Component {
       curImportType: null,
       curExportType: null,
       showLoading: false,
-      dataSync: false,
+      dataSync: 'good',
       exportContent: 'all',
       isSwaggerUrl: false,
       swaggerUrl: '',
@@ -84,7 +86,9 @@ class ProjectData extends Component {
     basePath: PropTypes.string,
     saveImportData: PropTypes.func,
     fetchUpdateLogData: PropTypes.func,
-    updateLogList: PropTypes.array
+    updateLogList: PropTypes.array,
+    handleSwaggerUrlData: PropTypes.func,
+    swaggerUrlData: PropTypes.string
   };
 
   componentWillMount() {
@@ -92,7 +96,8 @@ class ProjectData extends Component {
       if (data.data.errcode === 0) {
         let menuList = data.data.data;
         this.setState({
-          menuList: menuList
+          menuList: menuList,
+          selectCatid: menuList[0]._id
         });
       }
     });
@@ -143,7 +148,7 @@ class ProjectData extends Component {
       reader.readAsText(info.file);
       reader.onload = async res => {
         res = await importDataModule[this.state.curImportType].run(res.target.result);
-        if (this.state.dataSync) {
+        if (this.state.dataSync === 'merge') {
           // 开启同步
           this.showConfirm(res);
         } else {
@@ -197,7 +202,7 @@ class ProjectData extends Component {
         await that.handleAddInterface(res);
       },
       onCancel() {
-        that.setState({ showLoading: false, dataSync: false });
+        that.setState({ showLoading: false, dataSync: 'normal' });
         ref.destroy();
       }
     });
@@ -250,11 +255,12 @@ class ProjectData extends Component {
     if (this.state.selectCatid) {
       this.setState({ showLoading: true });
       try {
-        let content = await axios(this.state.swaggerUrl);
-        content = content.data;
-        let res = await importDataModule[this.state.curImportType].run(content);
-        if (this.state.dataSync) {
-          // 开启同步
+        // 处理swagger url 导入
+        await this.props.handleSwaggerUrlData(this.state.swaggerUrl);
+        // let result = json5_parse(this.props.swaggerUrlData)
+        let res = await importDataModule[this.state.curImportType].run(this.props.swaggerUrlData);
+        if (this.state.dataSync === 'merge') {
+          // merge
           this.showConfirm(res);
         } else {
           // 未开启同步
@@ -301,7 +307,11 @@ class ProjectData extends Component {
       this.state.curExportType &&
       exportDataModule[this.state.curExportType] &&
       exportDataModule[this.state.curExportType].route;
-    let exportHref = handleExportRouteParams(exportUrl, this.state.exportContent, this.state.isWiki);
+    let exportHref = handleExportRouteParams(
+      exportUrl,
+      this.state.exportContent,
+      this.state.isWiki
+    );
 
     // console.log('inter', this.state.exportContent);
     return (
@@ -311,7 +321,8 @@ class ProjectData extends Component {
             <div className="dataImportCon">
               <div>
                 <h3>
-                  数据导入&nbsp;<a
+                  数据导入&nbsp;
+                  <a
                     target="_blank"
                     rel="noopener noreferrer"
                     href="https://yapi.ymfe.org/documents/data.html"
@@ -323,7 +334,10 @@ class ProjectData extends Component {
                 </h3>
               </div>
               <div className="dataImportTile">
-                <Select placeholder="请选择导入数据的方式" onChange={this.handleImportType}>
+                <Select
+                  placeholder="请选择导入数据的方式"
+                  onChange={this.handleImportType}
+                >
                   {Object.keys(importDataModule).map(name => {
                     return (
                       <Option key={name} value={name}>
@@ -335,6 +349,7 @@ class ProjectData extends Component {
               </div>
               <div className="catidSelect">
                 <Select
+                  value={this.state.selectCatid + ''}
                   showSearch
                   style={{ width: '100%' }}
                   placeholder="请选择数据导入的默认分类"
@@ -355,17 +370,40 @@ class ProjectData extends Component {
               </div>
               <div className="dataSync">
                 <span className="label">
-                  开启数据同步&nbsp;<Tooltip title="开启数据同步后会覆盖项目中原本的数据">
+                  数据同步&nbsp;
+                  <Tooltip
+                    title={
+                      <div>
+                        <h3 style={{ color: 'white' }}>普通模式</h3>
+                        <p>不导入已存在的接口</p>
+                        <br />
+                        <h3 style={{ color: 'white' }}>智能合并</h3>
+                        <p>
+                          已存在的接口，将合并返回数据的 response，适用于导入了 swagger
+                          数据，保留对数据结构的改动
+                        </p>
+                        <br />
+                        <h3 style={{ color: 'white' }}>完全覆盖</h3>
+                        <p>不保留旧数据，完全使用新数据，适用于接口定义完全交给后端定义</p>
+                      </div>
+                    }
+                  >
                     <Icon type="question-circle-o" />
                   </Tooltip>{' '}
                 </span>
+                <Select value={this.state.dataSync} onChange={this.onChange}>
+                  <Option value="normal">普通模式</Option>
+                  <Option value="good">智能合并</Option>
+                  <Option value="merge">完全覆盖</Option>
+                </Select>
 
-                <Switch checked={this.state.dataSync} onChange={this.onChange} />
+                {/* <Switch checked={this.state.dataSync} onChange={this.onChange} /> */}
               </div>
               {this.state.curImportType === 'swagger' && (
                 <div className="dataSync">
                   <span className="label">
-                    开启url导入&nbsp;<Tooltip title="swagger url 导入">
+                    开启url导入&nbsp;
+                    <Tooltip title="swagger url 导入">
                       <Icon type="question-circle-o" />
                     </Tooltip>{' '}
                     &nbsp;&nbsp;
@@ -456,9 +494,10 @@ class ProjectData extends Component {
                       checked={this.state.isWiki}
                       onChange={this.handleWikiChange}
                       className="wiki-btn"
-                      disabled = {this.state.curExportType === 'json'}
+                      disabled={this.state.curExportType === 'json'}
                     >
-                      添加wiki&nbsp;<Tooltip title="开启后 html 和 markdown 数据导出会带上wiki数据">
+                      添加wiki&nbsp;
+                      <Tooltip title="开启后 html 和 markdown 数据导出会带上wiki数据">
                         <Icon type="question-circle-o" />
                       </Tooltip>{' '}
                     </Checkbox>

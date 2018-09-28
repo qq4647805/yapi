@@ -18,24 +18,34 @@ const ejs = require('easy-json-schema');
 
 const jsf = require('json-schema-faker');
 const formats = require('../../common/formats');
+const http = require('http');
+
+jsf.extend ('mock', function () {
+  return {
+    mock: function (xx) {
+      return Mock.mock (xx);
+    }
+  };
+});
+
 const defaultOptions = {
   failOnInvalidTypes: false,
   failOnInvalidFormat: false
 };
 
-formats.forEach(item => {
-  item = item.name;
-  jsf.format(item, () => {
-    if (item === 'mobile') {
-      return jsf.random.randexp('^[1][34578][0-9]{9}$');
-    }
-    return Mock.mock('@' + item);
-  });
-});
+// formats.forEach(item => {
+//   item = item.name;
+//   jsf.format(item, () => {
+//     if (item === 'mobile') {
+//       return jsf.random.randexp('^[1][34578][0-9]{9}$');
+//     }
+//     return Mock.mock('@' + item);
+//   });
+// });
 
 exports.schemaToJson = function(schema, options = {}) {
   Object.assign(options, defaultOptions);
-
+  
   jsf.option(options);
   let result;
   try {
@@ -616,4 +626,40 @@ exports.handleMockScript = function(script, context) {
   context.httpCode = sandbox.httpCode;
   context.delay = sandbox.delay;
 };
+
+
+
+exports.createWebAPIRequest = function(ops) {
+  return new Promise(function(resolve, reject) {
+    let req = '';
+    let http_client = http.request(
+      {
+        host: ops.hostname,
+        method: 'GET',
+        port: ops.port,
+        path: ops.path
+      },
+      function(res) {
+        res.on('error', function(err) {
+          reject(err);
+        });
+        res.setEncoding('utf8');
+        if (res.statusCode != 200) {
+          reject({message: 'statusCode != 200'});
+        } else {
+          res.on('data', function(chunk) {
+            req += chunk;
+          });
+          res.on('end', function() {
+            resolve(req);
+          });
+        }
+      }
+    );
+    http_client.on('error', (e) => {
+      reject({message: 'request error'});
+    });
+    http_client.end();
+  });
+}
 
