@@ -588,7 +588,8 @@ class InterfaceMenu extends Component {
                     }}
                     to={'/project/' + matchParams.id + '/interface/api'}
                   >
-                    <Icon type="folder" style={{ marginRight: 5 }} />全部接口
+                    <Icon type="folder" style={{ marginRight: 5 }} />
+                    全部接口
                   </Link>
                 }
                 key="root"
