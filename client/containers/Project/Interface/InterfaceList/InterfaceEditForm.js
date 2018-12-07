@@ -7,6 +7,7 @@ import { handlePath, nameLengthLimit } from '../../../../common.js';
 import { changeEditStatus } from '../../../../reducer/modules/interface.js';
 import json5 from 'json5';
 import { message, Affix, Tabs, Modal } from 'antd';
+const confirm = Modal.confirm;
 import EasyDragSort from '../../../../components/EasyDragSort/EasyDragSort.js';
 import mockEditor from 'client/components/AceEditor/mockEditor';
 import AceEditor from 'client/components/AceEditor/AceEditor';
@@ -706,7 +707,7 @@ class InterfaceEditForm extends Component {
             })(
               <TextArea
                 autosize={true}
-                placeholder="关联接口地址"
+                placeholder="关联接口地址(浏览器上面的url)"
                 onChange={this.onChangeDefUrl(data, index)}
               />
             )}
@@ -1118,6 +1119,7 @@ class InterfaceEditForm extends Component {
                 </Col>
               </Row>
             </FormItem>
+
             <Row className={'interface-edit-item ' + this.state.hideTabs.req.query}>
               <Col>
                 <EasyDragSort
@@ -1129,11 +1131,13 @@ class InterfaceEditForm extends Component {
                 </EasyDragSort>
               </Col>
             </Row>
+
             <FormItem className={'interface-edit-item ' + this.state.hideTabs.req.headers}>
               <Button size="small" type="primary" onClick={() => this.addParams('req_headers')}>
                 添加Header
               </Button>
             </FormItem>
+
             <Row className={'interface-edit-item ' + this.state.hideTabs.req.headers}>
               <Col>
                 <EasyDragSort
@@ -1196,6 +1200,7 @@ class InterfaceEditForm extends Component {
                 </Row>
               </div>
             ) : null}
+
             <Row
               className={
                 'interface-edit-item ' +
@@ -1259,44 +1264,16 @@ class InterfaceEditForm extends Component {
                 )}
               </Col>
             </Row>
-            <Row
-              className={
-                'interface-edit-item ' +
-                (this.props.form.getFieldValue('req_body_type') === 'form'
-                  ? this.state.hideTabs.req.body
-                  : 'hide')
-              }
-            >
-              <Col style={{ minHeight: '50px' }}>
-                <Row>
-                  <Col span="24" className="interface-edit-item">
-                    <Button
-                      size="small"
-                      type="primary"
-                      onClick={() => this.addParams('req_body_form')}
-                    >
-                      添加form参数
-                    </Button>
 
-                    <Button
-                      size="small"
-                      type="primary"
-                      style={{ marginLeft: '5px' }}
-                      onClick={() => this.editParams('req_body_form', '批量编辑form参数')}
-                    >
-                      批量编辑form参数
-                    </Button>
-                  </Col>
-                </Row>
-                <EasyDragSort
-                  data={() => this.props.form.getFieldValue('req_body_form')}
-                  onChange={this.handleDragMove('req_body_form')}
-                  onlyChild="easy_drag_sort_child"
-                >
-                  {requestBodyList}
-                </EasyDragSort>
-              </Col>
-            </Row>
+            {this.props.form.getFieldValue('req_body_type') === 'file' &&
+            this.state.hideTabs.req.body !== 'hide' ? (
+              <Row className="interface-edit-item">
+                <Col className="interface-edit-item-other-body">
+                  {getFieldDecorator('req_body_other', {
+                    initialValue: this.state.req_body_other
+                  })(<TextArea placeholder="" autosize={true} />)}
+                </Col>
+              </Row>
             ) : null}
             {this.props.form.getFieldValue('req_body_type') === 'raw' &&
             this.state.hideTabs.req.body !== 'hide' ? (
@@ -1308,6 +1285,32 @@ class InterfaceEditForm extends Component {
                 </Col>
               </Row>
             ) : null}
+          </div>
+
+          <h2 className="interface-title">关联接口</h2>
+
+          <div>
+            <FormItem className={'interface-edit-item'}>
+              <Button
+                size="small"
+                type="primary"
+                onClick={() => this.addParams('dependencies_query')}
+              >
+                添加关联接口
+              </Button>
+            </FormItem>
+
+            <Row className={'interface-edit-item'}>
+              <Col>
+                <EasyDragSort
+                  data={() => this.props.form.getFieldValue('dependencies_query')}
+                  onChange={this.handleDragMove('dependencies_query')}
+                  onlyChild="easy_drag_sort_child"
+                >
+                  {dependenciesList}
+                </EasyDragSort>
+              </Col>
+            </Row>
           </div>
 
           {/* ----------- Response ------------- */}
@@ -1411,6 +1414,7 @@ class InterfaceEditForm extends Component {
                 </div>
               </Col>
             </Row>
+
             <Row
               className="interface-edit-item"
               style={{
@@ -1421,141 +1425,6 @@ class InterfaceEditForm extends Component {
                 {getFieldDecorator('res_body', {
                   initialValue: this.state.res_body
                 })(<TextArea style={{ minHeight: '150px' }} placeholder="" />)}
-              </Col>
-            </Row>
-            ) : null}
-          </div>
-
-          {/* ----------- Response ------------- */}
-
-          <h2 className="interface-title">关联接口</h2>
-
-          <div>
-            <FormItem className={'interface-edit-item'}>
-              <Button
-                size="small"
-                type="primary"
-                onClick={() => this.addParams('dependencies_query')}
-              >
-                添加关联接口
-              </Button>
-            </FormItem>
-
-            <Row className={'interface-edit-item'}>
-              <Col>
-                <EasyDragSort
-                  data={() => this.props.form.getFieldValue('dependencies_query')}
-                  onChange={this.handleDragMove('dependencies_query')}
-                  onlyChild="easy_drag_sort_child"
-                >
-                  {dependenciesList}
-                </EasyDragSort>
-              </Col>
-            </Row>
-          </div>
-
-          {/* ----------- api ------------- */}
-
-          <h2 className="interface-title">
-            返回数据设置&nbsp;
-            {getFieldDecorator('res_body_is_json_schema', {
-              valuePropName: 'checked',
-              initialValue: this.state.res_body_is_json_schema || !projectMsg.is_json5
-            })(
-              <Switch
-                checkedChildren="json-schema"
-                unCheckedChildren="json"
-                disabled={!projectMsg.is_json5}
-              />
-            )}
-          </h2>
-          <div className="container-radiogroup">
-            {getFieldDecorator('res_body_type', {
-              initialValue: this.state.res_body_type
-            })(
-              <RadioGroup size="large" className="radioGroup">
-                <RadioButton value="json">JSON</RadioButton>
-                <RadioButton value="raw">RAW</RadioButton>
-              </RadioGroup>
-            )}
-          </div>
-          <div className="panel-sub">
-            <Row
-              className="interface-edit-item"
-              style={{
-                display:
-                  this.props.form.getFieldValue('res_body_type') === 'json' ? 'block' : 'none'
-              }}
-            >
-              <Col>
-                <Tabs size="large" defaultActiveKey="tpl" onChange={this.handleJsonType}>
-                  <TabPane tab="模板" key="tpl" />
-                  <TabPane tab="预览" key="preview" />
-                </Tabs>
-                <div style={{ marginTop: '10px' }}>
-                  {!this.props.form.getFieldValue('res_body_is_json_schema') ? (
-                    <div
-                      style={{
-                        padding: '10px 0',
-                        fontSize: '15px'
-                      }}
-                    >
-                      <span>
-                        基于 mockjs 和 json5,使用注释方式写参数说明{' '}
-                        <Tooltip title={<pre>{Json5Example}</pre>}>
-                          <Icon type="question-circle-o" style={{ color: '#086dbf' }} />
-                        </Tooltip>{' '}
-                        ,具体使用方法请{' '}
-                        <span
-                          className="href"
-                          onClick={() =>
-                            window.open('https://yapi.ymfe.org/documents/mock.html', '_blank')
-                          }
-                        >
-                          查看文档
-                        </span>
-                      </span>
-                      ，“全局编辑”或 “退出全屏” 请按 <span style={{ fontWeight: '500' }}>F9</span>
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        display: this.state.jsonType === 'tpl' ? 'block' : 'none'
-                      }}
-                    >
-                      <ResBodySchema
-                        onChange={text => {
-                          this.setState({
-                            res_body: text
-                          });
-                          if (new Date().getTime() - this.startTime > 1000) {
-                            EditFormContext.props.changeEditStatus(true);
-                          }
-                        }}
-                        data={res_body}
-                      />
-                    </div>
-                  )}
-                  {!this.props.form.getFieldValue('res_body_is_json_schema') &&
-                    this.state.jsonType === 'tpl' && (
-                      <AceEditor
-                        className="interface-editor"
-                        data={this.state.res_body}
-                        onChange={this.handleResBody}
-                        ref={editor => (this.resBodyEditor = editor)}
-                        fullScreen={true}
-                      />
-                    )}
-                  <div
-                    id="mock-preview"
-                    style={{
-                      backgroundColor: '#eee',
-                      lineHeight: '20px',
-                      minHeight: '300px',
-                      display: this.state.jsonType === 'preview' ? 'block' : 'none'
-                    }}
-                  />
-                </div>
               </Col>
             </Row>
           </div>
