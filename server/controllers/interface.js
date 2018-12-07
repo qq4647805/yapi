@@ -12,6 +12,7 @@ const projectModel = require('../models/project.js');
 const jsondiffpatch = require('jsondiffpatch');
 const formattersHtml = jsondiffpatch.formatters.html;
 const showDiffMsg = require('../../common/diff-view.js');
+const mergeJsonSchema = require('../../common/mergeJsonSchema');
 const fs = require('fs-extra');
 const path = require('path');
 
@@ -111,7 +112,8 @@ class interfaceController extends baseController {
           method: minLengthStringField,
           catid: 'number',
           switch_notice: 'boolean',
-          message: minLengthStringField
+          message: minLengthStringField,
+          tag: 'array'
         },
         addAndUpCommonField
       ),
@@ -122,7 +124,8 @@ class interfaceController extends baseController {
           title: minLengthStringField,
           path: minLengthStringField,
           method: minLengthStringField,
-          message: minLengthStringField
+          message: minLengthStringField,
+          dataSync: 'string'
         },
         addAndUpCommonField
       )
@@ -197,13 +200,13 @@ class interfaceController extends baseController {
       });
     });
 
-    let checkRepeat = await this.Model.checkRepeat(params.project_id, params.path, params.method);
+    let checkRepeat = await this.Model.checkRepeat(params.project_id, http_path.pathname, params.method);
 
     if (checkRepeat > 0) {
       return (ctx.body = yapi.commons.resReturn(
         null,
         40022,
-        '已存在的接口:' + params.path + '[' + params.method + ']'
+        '已存在的接口:' + http_path.pathname + '[' + params.method + ']'
       ));
     }
 
@@ -288,7 +291,7 @@ class interfaceController extends baseController {
 
   async save(ctx) {
     let params = ctx.params;
-
+    
     if (!this.$tokenAuth) {
       let auth = await this.checkAuth(params.project_id, 'project', 'edit');
       if (!auth) {
@@ -308,16 +311,25 @@ class interfaceController extends baseController {
       ));
     }
 
-    let result = await this.Model.getByPath(params.project_id, params.path, params.method, '_id');
+    let result = await this.Model.getByPath(params.project_id, params.path, params.method, '_id res_body');
 
     if (result.length > 0) {
       result.forEach(async item => {
         params.id = item._id;
         // console.log(this.schemaMap['up'])
-        let validResult = yapi.commons.validateParams(this.schemaMap['up'], params);
+        let validParams = Object.assign({}, params)
+        let validResult = yapi.commons.validateParams(this.schemaMap['up'], validParams);
         if (validResult.valid) {
           let data = {};
-          data.params = params;
+          data.params = validParams;
+
+          if(params.res_body_is_json_schema && params.dataSync === 'good'){
+            try{
+              let new_res_body = yapi.commons.json_parse(params.res_body)
+              let old_res_body = yapi.commons.json_parse(item.res_body)
+              data.params.res_body = JSON.stringify(mergeJsonSchema(old_res_body, new_res_body),null,2);
+            }catch(err){}
+          }
           await this.up(data);
         } else {
           return (ctx.body = yapi.commons.resReturn(null, 400, validResult.message));
@@ -371,7 +383,6 @@ class interfaceController extends baseController {
       if (userinfo) {
         result.username = userinfo.username;
       }
-
       ctx.body = yapi.commons.resReturn(result);
     } catch (e) {
       ctx.body = yapi.commons.resReturn(null, 402, e.message);
@@ -591,9 +602,9 @@ class interfaceController extends baseController {
       },
       params
     );
-
+    let http_path;
     if (params.path) {
-      let http_path = url.parse(params.path, true);
+      http_path = url.parse(params.path, true);
 
       if (!yapi.commons.verifyPath(http_path.pathname)) {
         return (ctx.body = yapi.commons.resReturn(
@@ -620,14 +631,14 @@ class interfaceController extends baseController {
     ) {
       let checkRepeat = await this.Model.checkRepeat(
         interfaceData.project_id,
-        params.path,
+        http_path.pathname,
         params.method
       );
       if (checkRepeat > 0) {
         return (ctx.body = yapi.commons.resReturn(
           null,
           401,
-          '已存在的接口:' + params.path + '[' + params.method + ']'
+          '已存在的接口:' + http_path.pathname + '[' + params.method + ']'
         ));
       }
     }
@@ -640,7 +651,6 @@ class interfaceController extends baseController {
         data.req_params = [];
       }
     }
-
     let result = await this.Model.up(id, data);
     let username = this.getUsername();
     let CurrentInterfaceData = await this.Model.get(id);
@@ -684,6 +694,7 @@ class interfaceController extends baseController {
       );
 
       let project = await this.projectModel.getBaseInfo(interfaceData.project_id);
+      
       let interfaceUrl = `http://${ctx.request.host}/project/${
         interfaceData.project_id
       }/interface/api/${id}`;
@@ -781,7 +792,7 @@ class interfaceController extends baseController {
 
       // let inter = await this.Model.get(id);
       let result = await this.Model.del(id);
-      yapi.emitHook('interface_del', data).then();
+      yapi.emitHook('interface_del', id).then();
       await this.caseModel.delByInterfaceId(id);
       let username = this.getUsername();
       this.catModel.get(data.catid).then(cate => {
@@ -950,7 +961,7 @@ class interfaceController extends baseController {
 
       interfaceData.forEach(async item => {
         try {
-          yapi.emitHook('interface_del', item).then();
+          yapi.emitHook('interface_del', item._id).then();
           await this.caseModel.delByInterfaceId(item._id);
         } catch (e) {
           yapi.commons.log(e.message, 'error');
