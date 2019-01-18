@@ -125,11 +125,19 @@ class groupController extends baseController {
   async add(ctx) {
     let params = ctx.params;
 
-    if (this.getRole() !== 'admin') {
-      return (ctx.body = yapi.commons.resReturn(null, 401, '没有权限'));
-    }
+    // 新版每个人都有权限添加分组
+    
+    // if (this.getRole() !== 'admin') {
+    //   return (ctx.body = yapi.commons.resReturn(null, 401, '没有权限'));
+    // }
 
     let owners = [];
+
+    if(params.owner_uids.length === 0){
+      params.owner_uids.push(
+        this.getUid()
+      )
+    }
 
     if (params.owner_uids) {
       for (let i = 0, len = params.owner_uids.length; i < len; i++) {
@@ -201,6 +209,16 @@ class groupController extends baseController {
       username: userData.username,
       email: userData.email
     };
+  }
+
+  async getMyGroup(ctx){
+    var groupInst = yapi.getInst(groupModel);
+    let privateGroup = await groupInst.getByPrivateUid(this.getUid());
+    if(privateGroup){
+      ctx.body = yapi.commons.resReturn(privateGroup)
+    }else{
+      ctx.body = yapi.commons.resReturn(null)
+    }
   }
 
   /**
