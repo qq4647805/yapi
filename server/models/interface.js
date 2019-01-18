@@ -176,15 +176,15 @@ class interfaceModel extends baseModel {
   }
 
   checkRepeat(id, path, method) {
-    return this.model.count({
+    return this.model.countDocuments({
       project_id: id,
-      'query_path.path': path,
+      path: path,
       method: method
     });
   }
 
   countByProjectId(id) {
-    return this.model.count({
+    return this.model.countDocuments({
       project_id: id
     });
   }
@@ -228,7 +228,7 @@ class interfaceModel extends baseModel {
 
   //获取全部接口信息
   getInterfaceListCount() {
-    return this.model.count({});
+    return this.model.countDocuments({});
   }
 
   listByCatid(catid, select) {
@@ -329,7 +329,7 @@ class interfaceModel extends baseModel {
   }
 
   listCount(option) {
-    return this.model.count(option);
+    return this.model.countDocuments(option);
   }
 
   upIndex(id, index) {

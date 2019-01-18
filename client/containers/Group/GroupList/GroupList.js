@@ -1,7 +1,7 @@
 import React, { PureComponent as Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
-import { Icon, Modal, Input, message, Row, Menu, Col, Popover, Tooltip } from 'antd';
+import { Icon, Modal, Input, message,Spin,  Row, Menu, Col, Popover, Tooltip } from 'antd';
 import { autobind } from 'core-decorators';
 import axios from 'axios';
 import { withRouter } from 'react-router-dom';
@@ -221,17 +221,12 @@ export default class GroupList extends Component {
           <div className="curr-group">
             <div className="curr-group-name">
               <span className="name">{currGroup.group_name}</span>
-              {/* this.props.curUserRole === "admin" || this.props.curUserRoleInGroup === 'owner' ? (menu) : '' */}
-              {/* 只有超级管理员能添加分组 */
-              this.props.curUserRole === 'admin' ? (
-                <Tooltip title="添加分组">
-                  <a className="editSet">
-                    <Icon className="btn" type="folder-add" onClick={this.showModal} />
-                  </a>
-                </Tooltip>
-              ) : (
-                ''
-              )}
+              <Tooltip title="添加分组">
+                <a className="editSet">
+                  <Icon className="btn" type="folder-add" onClick={this.showModal} />
+                </a>
+              </Tooltip>
+            
             </div>
             <div className="curr-group-desc">简介: {currGroup.group_desc}</div>
           </div>
@@ -245,6 +240,11 @@ export default class GroupList extends Component {
               />
             </div>
           </div>
+          {this.state.groupList.length === 0 && <Spin style={{
+            marginTop: 20,
+            display: 'flex',
+            justifyContent: 'center'
+          }} />}
           <Menu
             className="group-list"
             mode="inline"

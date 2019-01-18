@@ -19,6 +19,49 @@ const path = require('path');
 // const annotatedCss = require("jsondiffpatch/public/formatters-styles/annotated.css");
 // const htmlCss = require("jsondiffpatch/public/formatters-styles/html.css");
 
+
+function handleHeaders(values){
+  let isfile = false,
+  isHavaContentType = false;
+  if (values.req_body_type === 'form') {
+    values.req_body_form.forEach(item => {
+      if (item.type === 'file') {
+        isfile = true;
+      }
+    });
+
+    values.req_headers.map(item => {
+      if (item.name === 'Content-Type') {
+        item.value = isfile ? 'multipart/form-data' : 'application/x-www-form-urlencoded';
+        isHavaContentType = true;
+      }
+    });
+    if (isHavaContentType === false) {
+      values.req_headers.unshift({
+        name: 'Content-Type',
+        value: isfile ? 'multipart/form-data' : 'application/x-www-form-urlencoded'
+      });
+    }
+  } else if (values.req_body_type === 'json') {
+    values.req_headers
+      ? values.req_headers.map(item => {
+          if (item.name === 'Content-Type') {
+            item.value = 'application/json';
+            isHavaContentType = true;
+          }
+        })
+      : [];
+    if (isHavaContentType === false) {
+      values.req_headers = values.req_headers || [];
+      values.req_headers.unshift({
+        name: 'Content-Type',
+        value: 'application/json'
+      });
+    }
+  }
+}
+
+
 class interfaceController extends baseController {
   constructor(ctx) {
     super(ctx);
@@ -190,6 +233,8 @@ class interfaceController extends baseController {
       ));
     }
 
+    handleHeaders(params)
+
     params.query_path = {};
     params.query_path.path = http_path.pathname;
     params.query_path.params = [];
@@ -200,13 +245,13 @@ class interfaceController extends baseController {
       });
     });
 
-    let checkRepeat = await this.Model.checkRepeat(params.project_id, http_path.pathname, params.method);
+    let checkRepeat = await this.Model.checkRepeat(params.project_id, params.path, params.method);
 
     if (checkRepeat > 0) {
       return (ctx.body = yapi.commons.resReturn(
         null,
         40022,
-        '已存在的接口:' + http_path.pathname + '[' + params.method + ']'
+        '已存在的接口:' + params.path + '[' + params.method + ']'
       ));
     }
 
@@ -585,6 +630,8 @@ class interfaceController extends baseController {
     // params.res_body_is_json_schema = _.isUndefined (params.res_body_is_json_schema) ? true : params.res_body_is_json_schema;
     // params.req_body_is_json_schema = _.isUndefined(params.req_body_is_json_schema) ?  true : params.req_body_is_json_schema;
 
+    handleHeaders(params)
+
     let interfaceData = await this.Model.get(id);
     if (!interfaceData) {
       return (ctx.body = yapi.commons.resReturn(null, 400, '不存在的接口'));
@@ -602,8 +649,9 @@ class interfaceController extends baseController {
       },
       params
     );
-    let http_path;
+    
     if (params.path) {
+      let http_path;
       http_path = url.parse(params.path, true);
 
       if (!yapi.commons.verifyPath(http_path.pathname)) {
@@ -631,14 +679,14 @@ class interfaceController extends baseController {
     ) {
       let checkRepeat = await this.Model.checkRepeat(
         interfaceData.project_id,
-        http_path.pathname,
+        params.path,
         params.method
       );
       if (checkRepeat > 0) {
         return (ctx.body = yapi.commons.resReturn(
           null,
           401,
-          '已存在的接口:' + http_path.pathname + '[' + params.method + ']'
+          '已存在的接口:' + params.path + '[' + params.method + ']'
         ));
       }
     }
@@ -662,6 +710,10 @@ class interfaceController extends baseController {
     };
 
     this.catModel.get(interfaceData.catid).then(cate => {
+      let diffView2 = showDiffMsg(jsondiffpatch, formattersHtml, logData);
+      if (diffView2.length <= 0) {
+          return; // 没有变化时，不写日志
+      }
       yapi.commons.saveLog({
         content: `<a href="/user/profile/${this.getUid()}">${username}</a> 
                     更新了分类 <a href="/project/${cate.project_id}/interface/api/cat_${
@@ -694,10 +746,11 @@ class interfaceController extends baseController {
       );
 
       let project = await this.projectModel.getBaseInfo(interfaceData.project_id);
-      
-      let interfaceUrl = `http://${ctx.request.host}/project/${
+    
+      let interfaceUrl = `${ctx.request.origin}/project/${
         interfaceData.project_id
       }/interface/api/${id}`;
+
       yapi.commons.sendNotice(interfaceData.project_id, {
         title: `${username} 更新了接口`,
         content: `<html>
