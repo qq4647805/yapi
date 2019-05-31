@@ -14,6 +14,8 @@ const _ = require('underscore');
 const Ajv = require('ajv');
 const Mock = require('mockjs');
 
+
+
 const ejs = require('easy-json-schema');
 
 const jsf = require('json-schema-faker');
@@ -417,8 +419,9 @@ exports.createAction = (router, baseurl, routerController, action, path, method,
     let inst = new routerController(ctx);
     try {
       await inst.init(ctx);
+      ctx.params = Object.assign({}, ctx.request.query, ctx.request.body, ctx.params);
       if (inst.schemaMap && typeof inst.schemaMap === 'object' && inst.schemaMap[action]) {
-        ctx.params = Object.assign({}, ctx.request.query, ctx.request.body, ctx.params);
+        
         let validResult = yapi.commons.validateParams(inst.schemaMap[action], ctx.params);
 
         if (!validResult.valid) {
@@ -518,10 +521,10 @@ function convertString(variable) {
   }
 }
 
+
 exports.runCaseScript = async function runCaseScript(params, colId, interfaceId) {
   const colInst = yapi.getInst(interfaceColModel);
   let colData = await colInst.get(colId);
-
   const logs = [];
   const context = {
     assert: require('assert'),
@@ -586,7 +589,7 @@ ${JSON.stringify(schema,null,2)}`)
   } catch (err) {
     logs.push(convertString(err));
     result.logs = logs;
-
+    logs.push(err.name + ': ' + err.message)
     return yapi.commons.resReturn(result, 400, err.name + ': ' + err.message);
   }
 };
